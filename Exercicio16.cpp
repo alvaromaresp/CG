@@ -42,6 +42,11 @@ int main () {
         dirYMat[i] = new double[1];
     }
 
+    double** projCenterMat = new double*[4];
+    for (int i = 0; i < 4; i++){
+        projCenterMat[i] = new double[1];
+    }
+
     dirXMat[0][0] = directionX[0];
     dirXMat[1][0] = directionX[1];
     dirXMat[2][0] = directionX[2];
@@ -52,13 +57,10 @@ int main () {
     dirYMat[2][0] = directionY[2];
     dirYMat[3][0] = directionY[3];
 
-    // Coordenadas do plano de projeção (produto vetorial das direções)
-    double* projectionPlane = new double[4];
-
-    projectionPlane[0] = directionX[1] * directionY[2] - directionX[2] * directionY[1];
-    projectionPlane[1] = directionX[2] * directionY[0] - directionX[0] * directionY[2];
-    projectionPlane[2] = directionX[0] * directionY[1] - directionX[1] * directionY[0];
-    projectionPlane[3] = -1 * (projectionPlane[0] * plane_origin[0] + projectionPlane[1] * plane_origin[1] + projectionPlane[2] * plane_origin[2]);
+    projCenterMat[0][0] = projectionCenter[0];
+    projCenterMat[1][0] = projectionCenter[1];
+    projCenterMat[2][0] = projectionCenter[2];
+    projCenterMat[3][0] = projectionCenter[3];
 
     // Origem das coordenadas do mundo e translação para a mesma
     double world_origin[4] = {0,0,0,1};
@@ -69,6 +71,8 @@ int main () {
 
     dirXMat = multMatrix(rotYMat, 4, 4, dirXMat, 4, 1);
     dirYMat = multMatrix(rotYMat, 4, 4, dirYMat, 4, 1);
+    projCenterMat = multMatrix(rotYMat, 4, 4, projCenterMat, 4, 1);
+
     cout << setprecision(5);
     cout << fixed;
 
@@ -76,35 +80,40 @@ int main () {
 
     uniToBi(dirXMat, directionX);
     uniToBi(dirYMat, directionY);
+    uniToBi(projCenterMat, projectionCenter);
 
     // Segunda rotação em Z levando a direção de X pelo ângulo entre a direção de X do plano e a direção X do mundo
     double** rotZMat = rotationZ(directionX);
     
     dirXMat = multMatrix(rotZMat, 4, 4, dirXMat, 4, 1);
     dirYMat = multMatrix(rotZMat, 4, 4, dirYMat, 4, 1);
-
+    projCenterMat = multMatrix(rotZMat, 4, 4, projCenterMat, 4, 1);
 
     projMat = multMatrix(projMat, 4, 4, rotZMat, 4, 4);
 
     uniToBi(dirXMat, directionX);
     uniToBi(dirYMat, directionY);
+    uniToBi(projCenterMat, projectionCenter);
     // Terceira rotação em Z levando a direção de X pelo ângulo entre a direção de X do plano e a direção X do mundo
 
     double** rotXMat = rotationX(directionY);
 
     dirXMat = multMatrix(rotXMat, 4, 4, dirXMat, 4, 1);
     dirYMat = multMatrix(rotXMat, 4, 4, dirYMat, 4, 1);
+    projCenterMat = multMatrix(rotXMat, 4, 4, projCenterMat, 4, 1);
 
     projMat = multMatrix(projMat, 4, 4, rotXMat, 4, 4);
  
-    // Caso for projeção em perspectiva, transladar o CP para a origem do mundo
+    double** shearMat;
+    // Caso for projeção em perspectiva, transladar o CP para a origem do mundo e inclinar pelo centro
     if (projectionCenter[3] != 0){
+        shearMat = shear(plane_origin);
         transMat = translation(projectionCenter, world_origin);
         projMat = multMatrix(projMat, 4, 4, transMat, 4, 4);
+    } else {
+        shearMat = shear(projectionCenter);
     }
-
-    // Inclinação
-    double** shearMat = shear(plane_origin);
+    
     projMat = multMatrix(projMat, 4, 4, shearMat, 4, 4);
     cout << setw(8);
     for (int i = 0; i < 4; i++){
